@@ -54,7 +54,8 @@ typedef enum {
     CONTAINER_RUNNING,
     CONTAINER_STOPPED,
     CONTAINER_KILLED,
-    CONTAINER_EXITED
+    CONTAINER_EXITED,
+    CONTAINER_HARD_LIMIT_KILLED
 } container_state_t;
 
 typedef struct container_record {
@@ -166,7 +167,13 @@ static void reap_zombies(supervisor_ctx_t *ctx) {
                     c->state = CONTAINER_EXITED;
                 } else if (WIFSIGNALED(status)) {
                     c->exit_signal = WTERMSIG(status);
-                    c->state = c->stop_requested ? CONTAINER_STOPPED : CONTAINER_KILLED;
+                    if (c->stop_requested) {
+                        c->state = CONTAINER_STOPPED;
+                    } else if (WTERMSIG(status) == SIGKILL) {
+                        c->state = CONTAINER_HARD_LIMIT_KILLED;
+                    } else {
+                        c->state = CONTAINER_KILLED;
+                    }
                 }
                 if (ctx->monitor_fd >= 0) unregister_from_monitor(ctx->monitor_fd, c->id, pid);
                 break;
@@ -216,7 +223,8 @@ static const char *state_to_string(container_state_t state) {
         case CONTAINER_RUNNING:  return "running";
         case CONTAINER_STOPPED:  return "stopped";
         case CONTAINER_KILLED:   return "killed";
-        case CONTAINER_EXITED:   return "exited";
+        case CONTAINER_EXITED:  return "exited";
+        case CONTAINER_HARD_LIMIT_KILLED:   return "hard_limit_killed";
         default: return "unknown";
     }
 }
