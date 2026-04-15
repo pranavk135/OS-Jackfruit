@@ -302,7 +302,11 @@ static int __init monitor_init(void)
 /* --- Provided: Module Exit --- */
 static void __exit monitor_exit(void)
 {
-    del_timer_sync(&monitor_timer);
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+        timer_delete_sync(&monitor_timer);
+    #else
+        del_timer_sync(&monitor_timer);
+    #endif
 
     /* ==============================================================
      * TODO 6: Free all remaining monitored entries on module unload.
